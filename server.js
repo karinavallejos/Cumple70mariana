@@ -3,7 +3,13 @@ const path = require('path');
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css') || filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+  }
+}));
 
 const ADMIN_KEY = process.env.ADMIN_KEY || 'cumple123';
 const ROUND_COUNT = 20;
@@ -22,6 +28,7 @@ function defaultState(epoch) {
     mode: 'zoom',
     round: 0,
     zoomIndex: 0,
+    imageVisible: false,
     roundSettings,
     buzzes: [],
     players: [],
@@ -82,6 +89,7 @@ app.post('/api/goto-round', checkAdmin, (req, res) => {
   state.round = n - 1;
   state.zoomIndex = 0;
   state.buzzes = [];
+  state.imageVisible = false;
   res.json(publicState());
 });
 
@@ -90,6 +98,7 @@ app.post('/api/next-round', checkAdmin, (req, res) => {
     state.round += 1;
     state.zoomIndex = 0;
     state.buzzes = [];
+    state.imageVisible = false;
   }
   res.json(publicState());
 });
@@ -105,6 +114,16 @@ app.post('/api/round-setting', checkAdmin, (req, res) => {
   state.roundSettings[state.round] = { initialScale: scale, focusX: fx, focusY: fy };
   state.zoomIndex = 0;
   state.buzzes = [];
+  res.json(publicState());
+});
+
+app.post('/api/show-image', checkAdmin, (req, res) => {
+  state.imageVisible = true;
+  res.json(publicState());
+});
+
+app.post('/api/hide-image', checkAdmin, (req, res) => {
+  state.imageVisible = false;
   res.json(publicState());
 });
 
