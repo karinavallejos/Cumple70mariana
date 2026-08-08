@@ -1,6 +1,7 @@
 let adminKey = localStorage.getItem('kbday_adminkey') || '';
 let currentState = null;
 let pollTimer = null;
+let renderedVideoUrl;
 
 function render() {
   const app = document.getElementById('app');
@@ -150,37 +151,40 @@ async function renderDynamic() {
 
   if (currentState.mode === 'video') {
     zoomPanel.innerHTML = '';
-    videoPanel.innerHTML = `
-      <div class="card">
-        <h3 style="font-size:17px;">Video para todos</h3>
-        <p class="muted">Link directo a un archivo .mp4 (Dropbox con dl=1, o Drive).</p>
-        <input type="text" id="videoUrlInput" placeholder="https://.../video.mp4" value="${currentState.video.url || ''}">
-        <button class="secondary" id="btnSetVideo">Usar este video</button>
-        <video id="adminVideo" controls playsinline ${currentState.video.url ? `src="${currentState.video.url}"` : ''}></video>
-        <div class="row" style="margin-top:10px;">
-          <button class="primary" id="btnPlay">Reproducir</button>
-          <button class="secondary" id="btnPause">Pausar</button>
-        </div>
-        <button class="ghost" id="btnRestartVideo">Reiniciar video</button>
-      </div>`;
-    document.getElementById('btnSetVideo').onclick = async () => {
-      const url = document.getElementById('videoUrlInput').value.trim();
-      await apiPost('/api/video', { url }, adminKey);
-      refreshState();
-    };
-    const vid = document.getElementById('adminVideo');
-    document.getElementById('btnPlay').onclick = async () => {
-      vid.play().catch(() => {});
-      await apiPost('/api/video/play', { currentTime: vid.currentTime || 0 }, adminKey);
-    };
-    document.getElementById('btnPause').onclick = async () => {
-      vid.pause();
-      await apiPost('/api/video/pause', { currentTime: vid.currentTime || 0 }, adminKey);
-    };
-    document.getElementById('btnRestartVideo').onclick = async () => {
-      vid.currentTime = 0;
-      await apiPost('/api/video/restart', {}, adminKey);
-    };
+    if (renderedVideoUrl !== currentState.video.url || !document.getElementById('adminVideo')) {
+      renderedVideoUrl = currentState.video.url;
+      videoPanel.innerHTML = `
+        <div class="card">
+          <h3 style="font-size:17px;">Video para todos</h3>
+          <p class="muted">Link directo a un archivo .mp4 (Dropbox con dl=1, o Drive).</p>
+          <input type="text" id="videoUrlInput" placeholder="https://.../video.mp4" value="${currentState.video.url || ''}">
+          <button class="secondary" id="btnSetVideo">Usar este video</button>
+          <video id="adminVideo" controls playsinline ${currentState.video.url ? `src="${currentState.video.url}"` : ''}></video>
+          <div class="row" style="margin-top:10px;">
+            <button class="primary" id="btnPlay">Reproducir</button>
+            <button class="secondary" id="btnPause">Pausar</button>
+          </div>
+          <button class="ghost" id="btnRestartVideo">Reiniciar video</button>
+        </div>`;
+      document.getElementById('btnSetVideo').onclick = async () => {
+        const url = document.getElementById('videoUrlInput').value.trim();
+        try { await apiPost('/api/video', { url }, adminKey); refreshState(); }
+        catch (e) { alert(e.message); }
+      };
+      const vid = document.getElementById('adminVideo');
+      document.getElementById('btnPlay').onclick = async () => {
+        vid.play().catch(() => {});
+        await apiPost('/api/video/play', { currentTime: vid.currentTime || 0 }, adminKey);
+      };
+      document.getElementById('btnPause').onclick = async () => {
+        vid.pause();
+        await apiPost('/api/video/pause', { currentTime: vid.currentTime || 0 }, adminKey);
+      };
+      document.getElementById('btnRestartVideo').onclick = async () => {
+        vid.currentTime = 0;
+        await apiPost('/api/video/restart', {}, adminKey);
+      };
+    }
   }
 }
 
