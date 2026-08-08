@@ -1,4 +1,4 @@
-const ZOOM_BG_SIZES = ['480% 480%', '300% 300%', '190% 190%', 'cover'];
+const ZOOM_SCALES = [4.2, 2.6, 1.6, 1.0];
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
 const imageUrlCache = {};
 
@@ -40,12 +40,16 @@ async function resolveImageUrl(roundNumber) {
 async function paintZoomBox(boxEl, round1based, zoomIndex, focusX, focusY) {
   const url = await resolveImageUrl(round1based);
   if (!url) {
-    boxEl.style.backgroundImage = 'none';
-    boxEl.innerHTML = '<p class="muted" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:0 20px; text-align:center;">No se encontró la imagen ' + round1based + '. Revisa que esté en la carpeta de imágenes.</p>';
+    boxEl.innerHTML = '<p class="muted" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:0 20px; text-align:center; margin:0;">No se encontró la imagen ' + round1based + '. Revisa que esté en la carpeta de imágenes.</p>';
     return;
   }
-  boxEl.innerHTML = '';
-  boxEl.style.backgroundImage = `url(${url})`;
-  boxEl.style.backgroundSize = ZOOM_BG_SIZES[zoomIndex];
-  boxEl.style.backgroundPosition = `${focusX}% ${focusY}%`;
+  let img = boxEl.querySelector('img');
+  if (!img || boxEl.dataset.currentUrl !== url) {
+    boxEl.innerHTML = '<img alt="" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;">';
+    img = boxEl.querySelector('img');
+    img.src = url;
+    boxEl.dataset.currentUrl = url;
+  }
+  img.style.transformOrigin = `${focusX}% ${focusY}%`;
+  img.style.transform = `scale(${ZOOM_SCALES[zoomIndex]})`;
 }
