@@ -65,3 +65,4 @@ async function paintZoomBox(boxEl, round1based, zoomIndex, focusX, focusY, initi
   img.style.transformOrigin = `${focusX}% ${focusY}%`;
   img.style.transform = `scale(${scales[zoomIndex]})`;
 }
+
