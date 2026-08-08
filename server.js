@@ -6,7 +6,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const ADMIN_KEY = process.env.ADMIN_KEY || 'cumple123';
-const ROUND_COUNT = 15;
+const ROUND_COUNT = 20;
 const ZOOM_STEPS = 6;
 
 function defaultRoundSetting() {
