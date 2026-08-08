@@ -19,7 +19,7 @@ function render() {
 function viewNamePrompt() {
   return `
     <div class="center" style="padding-top:30px;">
-      <h1 style="font-size:28px;">Cumple de mamá</h1>
+      <h1 style="font-size:28px;">¡Cumpleaños Mariana!</h1>
       <p class="muted">Escribe tu nombre para jugar</p>
     </div>
     <div class="card">
