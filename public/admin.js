@@ -12,6 +12,31 @@ function applyEditorTransform() {
   img.style.transform = `translate(${editorPanX}px, ${editorPanY}px) scale(${editorZoom})`;
 }
 
+function showToast(message) {
+  let toast = document.getElementById('adminToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'adminToast';
+    toast.style.position = 'fixed';
+    toast.style.top = '12px';
+    toast.style.left = '50%';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.background = '#A32D2D';
+    toast.style.color = '#fff';
+    toast.style.padding = '10px 16px';
+    toast.style.borderRadius = '10px';
+    toast.style.fontSize = '14px';
+    toast.style.zIndex = '9999';
+    toast.style.maxWidth = '90%';
+    toast.style.textAlign = 'center';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.display = 'block';
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+}
+
 function render() {
   const app = document.getElementById('app');
   if (!adminKey) {
@@ -92,7 +117,7 @@ function bindAdmin() {
   document.getElementById('btnGoto').onclick = async () => {
     const n = parseInt(document.getElementById('roundSelect').value, 10);
     try { await apiPost('/api/goto-round', { round: n }, adminKey); refreshState(); }
-    catch (e) { alert(e.message); }
+    catch (e) { showToast(e.message); }
   };
   document.getElementById('btnResetGame').onclick = async () => {
     if (!confirm('Esto reinicia todo y todos los invitados deberán volver a escribir su nombre. ¿Continuar?')) return;
@@ -105,7 +130,7 @@ function bindAdmin() {
 
 async function setMode(mode) {
   try { await apiPost('/api/mode', { mode }, adminKey); refreshState(); }
-  catch (e) { alert(e.message); }
+  catch (e) { showToast(e.message); }
 }
 
 function startPolling() {
@@ -151,6 +176,7 @@ async function renderDynamic() {
           </div>
           <input type="range" id="zoomSlider" min="1" max="25" step="0.5" value="8" style="width:100%; margin:8px 0 14px;">
           <button class="gold" id="btnSaveZoom">Guardar este zoom inicial</button>
+          <p class="muted hidden" id="editorMsg" style="text-align:center; margin-top:4px;"></p>
         </div>`;
       const img = document.getElementById('editorImg');
       resolveImageUrl(currentState.round + 1).then((url) => { if (url) img.src = url; });
@@ -181,29 +207,54 @@ async function renderDynamic() {
       };
 
       document.getElementById('btnSaveZoom').onclick = async () => {
+        const btn = document.getElementById('btnSaveZoom');
+        const msg = document.getElementById('editorMsg');
         const box = document.getElementById('editorBox');
         const editImg = document.getElementById('editorImg');
         const boxRect = box.getBoundingClientRect();
         const imgRect = editImg.getBoundingClientRect();
+        msg.classList.remove('hidden');
+        if (!boxRect.width || !imgRect.width) {
+          msg.textContent = 'Espera un segundo a que cargue la foto e intenta de nuevo.';
+          msg.classList.add('error');
+          return;
+        }
         const scale = imgRect.width / boxRect.width;
         let fx = ((boxRect.left + boxRect.width / 2) - imgRect.left) / imgRect.width;
         let fy = ((boxRect.top + boxRect.height / 2) - imgRect.top) / imgRect.height;
         fx = Math.min(0.98, Math.max(0.02, fx)) * 100;
         fy = Math.min(0.98, Math.max(0.02, fy)) * 100;
+        btn.disabled = true;
+        btn.textContent = 'Guardando...';
+        msg.classList.remove('error');
+        msg.textContent = '';
         try {
           await apiPost('/api/round-setting', { initialScale: scale, focusX: fx, focusY: fy }, adminKey);
+          btn.textContent = 'Guardar este zoom inicial';
+          btn.disabled = false;
+          msg.textContent = '✓ Zoom guardado. Bájalo con "Alejar zoom" para revisarlo, o muéstralo a los invitados.';
+          msg.classList.remove('error');
           refreshState();
-        } catch (e) { alert(e.message); }
+        } catch (e) {
+          btn.textContent = 'Guardar este zoom inicial';
+          btn.disabled = false;
+          msg.textContent = e.message;
+          msg.classList.add('error');
+        }
       };
     }
 
     const atFull = currentState.zoomIndex >= ZOOM_STEPS - 1;
     const buzzes = currentState.buzzes || [];
+    const visible = currentState.imageVisible;
     zoomPanel.innerHTML = `
       <div class="card">
         <span class="tag gold">Imagen ${currentState.round + 1} de ${currentState.roundCount}</span>
-        <p class="muted">Así se ve ahora mismo en los celulares de los invitados:</p>
+        <span class="tag" style="${visible ? '' : 'background:#F1E4EC;'}">${visible ? '👁 Visible para invitados' : '🚫 Oculta para invitados'}</span>
+        <p class="muted">Así se ve (o se verá) en los celulares de los invitados:</p>
         <div class="zoombox" id="zbox"></div>
+        <button class="${visible ? 'ghost' : 'gold'}" id="btnToggleVisible">${visible ? 'Ocultar de los invitados' : 'Mostrar a los invitados'}</button>
+        <hr>
         <button class="primary" id="btnZoomOut" ${atFull ? 'disabled' : ''}>Alejar zoom</button>
         <button class="secondary" id="btnShowFull" ${atFull ? 'disabled' : ''}>Ver imagen completa</button>
         <button class="secondary" id="btnNext" ${currentState.round >= currentState.roundCount - 1 ? 'disabled' : ''}>Siguiente imagen</button>
@@ -216,6 +267,10 @@ async function renderDynamic() {
       </div>`;
     const box = document.getElementById('zbox');
     await paintZoomBox(box, currentState.round + 1, currentState.zoomIndex, currentState.focusX, currentState.focusY, currentState.initialScale);
+    document.getElementById('btnToggleVisible').onclick = () => {
+      const endpoint = visible ? '/api/hide-image' : '/api/show-image';
+      apiPost(endpoint, {}, adminKey).then(refreshState);
+    };
     document.getElementById('btnZoomOut').onclick = () => apiPost('/api/zoom-out', {}, adminKey).then(refreshState);
     document.getElementById('btnShowFull').onclick = () => apiPost('/api/show-full', {}, adminKey).then(refreshState);
     document.getElementById('btnNext').onclick = () => apiPost('/api/next-round', {}, adminKey).then(refreshState);
@@ -246,7 +301,7 @@ async function renderDynamic() {
       document.getElementById('btnSetVideo').onclick = async () => {
         const url = document.getElementById('videoUrlInput').value.trim();
         try { await apiPost('/api/video', { url }, adminKey); refreshState(); }
-        catch (e) { alert(e.message); }
+        catch (e) { showToast(e.message); }
       };
       const vid = document.getElementById('adminVideo');
       document.getElementById('btnPlay').onclick = async () => {
