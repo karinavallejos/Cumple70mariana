@@ -88,6 +88,14 @@ async function renderContent() {
   if (!el || !currentState) return;
 
   if (currentState.mode === 'zoom') {
+    if (!currentState.imageVisible) {
+      el.innerHTML = `
+        <div class="card">
+          <span class="tag gold">Imagen ${currentState.round + 1} de ${currentState.roundCount}</span>
+          <div class="zoombox"></div>
+        </div>`;
+      return;
+    }
     el.innerHTML = `
       <div class="card">
         <span class="tag">Imagen ${currentState.round + 1} de ${currentState.roundCount}</span>
@@ -137,5 +145,3 @@ async function renderContent() {
 }
 
 render();
-
-
