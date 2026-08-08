@@ -1,6 +1,17 @@
-const ZOOM_SCALES = [7.5, 4.2, 2.2, 1.0];
+const ZOOM_STEPS = 6;
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
 const imageUrlCache = {};
+
+function computeZoomScales(initialScale, steps) {
+  steps = steps || ZOOM_STEPS;
+  const s0 = Math.max(1, initialScale || 1);
+  if (s0 <= 1) return new Array(steps).fill(1);
+  const ratio = Math.pow(1 / s0, 1 / (steps - 1));
+  const scales = [];
+  for (let i = 0; i < steps; i++) scales.push(s0 * Math.pow(ratio, i));
+  scales[steps - 1] = 1;
+  return scales;
+}
 
 async function apiGet(path) {
   const r = await fetch(path);
@@ -37,7 +48,7 @@ async function resolveImageUrl(roundNumber) {
   return null;
 }
 
-async function paintZoomBox(boxEl, round1based, zoomIndex, focusX, focusY) {
+async function paintZoomBox(boxEl, round1based, zoomIndex, focusX, focusY, initialScale) {
   const url = await resolveImageUrl(round1based);
   if (!url) {
     boxEl.innerHTML = '<p class="muted" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:0 20px; text-align:center; margin:0;">No se encontró la imagen ' + round1based + '. Revisa que esté en la carpeta de imágenes.</p>';
@@ -50,6 +61,7 @@ async function paintZoomBox(boxEl, round1based, zoomIndex, focusX, focusY) {
     img.src = url;
     boxEl.dataset.currentUrl = url;
   }
+  const scales = computeZoomScales(initialScale);
   img.style.transformOrigin = `${focusX}% ${focusY}%`;
-  img.style.transform = `scale(${ZOOM_SCALES[zoomIndex]})`;
+  img.style.transform = `scale(${scales[zoomIndex]})`;
 }
