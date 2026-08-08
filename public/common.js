@@ -1,4 +1,4 @@
-const ZOOM_SCALES = [4.2, 2.6, 1.6, 1.0];
+const ZOOM_SCALES = [7.5, 4.2, 2.2, 1.0];
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
 const imageUrlCache = {};
 
