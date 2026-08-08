@@ -95,7 +95,7 @@ async function renderContent() {
         <button class="gold" id="btnBuzz" ${hasBuzzed ? 'disabled' : ''}>${hasBuzzed ? 'Ya avisaste' : '¡Tengo una idea!'}</button>
       </div>`;
     const box = document.getElementById('zbox');
-    await paintZoomBox(box, currentState.round + 1, currentState.zoomIndex, currentState.focusX, currentState.focusY);
+    await paintZoomBox(box, currentState.round + 1, currentState.zoomIndex, currentState.focusX, currentState.focusY, currentState.initialScale);
     const btn = document.getElementById('btnBuzz');
     if (btn) btn.onclick = async () => {
       hasBuzzed = true;
@@ -137,4 +137,5 @@ async function renderContent() {
 }
 
 render();
+
 
