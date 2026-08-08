@@ -2,6 +2,15 @@ let adminKey = localStorage.getItem('kbday_adminkey') || '';
 let currentState = null;
 let pollTimer = null;
 let renderedVideoUrl;
+let renderedEditorKey;
+let editorPanX = 0, editorPanY = 0, editorZoom = 8;
+let editorDragging = false, editorDragStartX = 0, editorDragStartY = 0, editorDragStartPanX = 0, editorDragStartPanY = 0;
+
+function applyEditorTransform() {
+  const img = document.getElementById('editorImg');
+  if (!img) return;
+  img.style.transform = `translate(${editorPanX}px, ${editorPanY}px) scale(${editorZoom})`;
+}
 
 function render() {
   const app = document.getElementById('app');
@@ -55,6 +64,7 @@ function viewAdmin() {
         <button class="secondary" id="modeVideo">Video</button>
       </div>
     </div>
+    <div id="editorPanel"></div>
     <div id="zoomPanel"></div>
     <div id="videoPanel"></div>
     <div class="card">
@@ -120,15 +130,79 @@ async function renderDynamic() {
     ? '<li>Todavía nadie se ha registrado</li>'
     : players.map((p) => `<li>${p.name}</li>`).join('');
 
+  const editorPanel = document.getElementById('editorPanel');
   const zoomPanel = document.getElementById('zoomPanel');
   const videoPanel = document.getElementById('videoPanel');
 
   if (currentState.mode === 'zoom') {
-    const atFull = currentState.zoomIndex >= 3;
+    const roundKey = 'r' + currentState.round;
+    if (renderedEditorKey !== roundKey) {
+      renderedEditorKey = roundKey;
+      editorPanX = 0; editorPanY = 0; editorZoom = 8;
+      editorPanel.innerHTML = `
+        <div class="card">
+          <h3 style="font-size:17px;">Elegir el zoom inicial de esta imagen</h3>
+          <p class="muted">Arrastra la foto con el dedo para moverla, y usa la barra para acercar. Cuanto más a la derecha, más cerca.</p>
+          <div class="zoombox" id="editorBox" style="touch-action:none;">
+            <img id="editorImg" alt="" style="width:100%; height:100%; object-fit:cover; display:block; touch-action:none; cursor:grab;">
+          </div>
+          <div class="row" style="align-items:center;">
+            <span class="muted" style="flex:0 0 auto; margin:0;">Zoom: <strong id="zoomLevelLabel">8.0x</strong></span>
+          </div>
+          <input type="range" id="zoomSlider" min="1" max="25" step="0.5" value="8" style="width:100%; margin:8px 0 14px;">
+          <button class="gold" id="btnSaveZoom">Guardar este zoom inicial</button>
+        </div>`;
+      const img = document.getElementById('editorImg');
+      resolveImageUrl(currentState.round + 1).then((url) => { if (url) img.src = url; });
+      applyEditorTransform();
+
+      img.addEventListener('pointerdown', (e) => {
+        editorDragging = true;
+        editorDragStartX = e.clientX; editorDragStartY = e.clientY;
+        editorDragStartPanX = editorPanX; editorDragStartPanY = editorPanY;
+        img.setPointerCapture(e.pointerId);
+        img.style.cursor = 'grabbing';
+      });
+      img.addEventListener('pointermove', (e) => {
+        if (!editorDragging) return;
+        e.preventDefault();
+        editorPanX = editorDragStartPanX + (e.clientX - editorDragStartX);
+        editorPanY = editorDragStartPanY + (e.clientY - editorDragStartY);
+        applyEditorTransform();
+      });
+      const stopDrag = () => { editorDragging = false; img.style.cursor = 'grab'; };
+      img.addEventListener('pointerup', stopDrag);
+      img.addEventListener('pointercancel', stopDrag);
+
+      document.getElementById('zoomSlider').oninput = (e) => {
+        editorZoom = parseFloat(e.target.value);
+        document.getElementById('zoomLevelLabel').textContent = editorZoom.toFixed(1) + 'x';
+        applyEditorTransform();
+      };
+
+      document.getElementById('btnSaveZoom').onclick = async () => {
+        const box = document.getElementById('editorBox');
+        const editImg = document.getElementById('editorImg');
+        const boxRect = box.getBoundingClientRect();
+        const imgRect = editImg.getBoundingClientRect();
+        const scale = imgRect.width / boxRect.width;
+        let fx = ((boxRect.left + boxRect.width / 2) - imgRect.left) / imgRect.width;
+        let fy = ((boxRect.top + boxRect.height / 2) - imgRect.top) / imgRect.height;
+        fx = Math.min(0.98, Math.max(0.02, fx)) * 100;
+        fy = Math.min(0.98, Math.max(0.02, fy)) * 100;
+        try {
+          await apiPost('/api/round-setting', { initialScale: scale, focusX: fx, focusY: fy }, adminKey);
+          refreshState();
+        } catch (e) { alert(e.message); }
+      };
+    }
+
+    const atFull = currentState.zoomIndex >= ZOOM_STEPS - 1;
     const buzzes = currentState.buzzes || [];
     zoomPanel.innerHTML = `
       <div class="card">
-        <span class="tag">Imagen ${currentState.round + 1} de ${currentState.roundCount}</span>
+        <span class="tag gold">Imagen ${currentState.round + 1} de ${currentState.roundCount}</span>
+        <p class="muted">Así se ve ahora mismo en los celulares de los invitados:</p>
         <div class="zoombox" id="zbox"></div>
         <button class="primary" id="btnZoomOut" ${atFull ? 'disabled' : ''}>Alejar zoom</button>
         <button class="secondary" id="btnShowFull" ${atFull ? 'disabled' : ''}>Ver imagen completa</button>
@@ -141,12 +215,15 @@ async function renderDynamic() {
         <button class="ghost" id="btnResetOrder">Reiniciar orden de esta imagen</button>
       </div>`;
     const box = document.getElementById('zbox');
-    await paintZoomBox(box, currentState.round + 1, currentState.zoomIndex, currentState.focusX, currentState.focusY);
+    await paintZoomBox(box, currentState.round + 1, currentState.zoomIndex, currentState.focusX, currentState.focusY, currentState.initialScale);
     document.getElementById('btnZoomOut').onclick = () => apiPost('/api/zoom-out', {}, adminKey).then(refreshState);
     document.getElementById('btnShowFull').onclick = () => apiPost('/api/show-full', {}, adminKey).then(refreshState);
     document.getElementById('btnNext').onclick = () => apiPost('/api/next-round', {}, adminKey).then(refreshState);
     document.getElementById('btnResetOrder').onclick = () => apiPost('/api/reset-order', {}, adminKey).then(refreshState);
     videoPanel.innerHTML = '';
+  } else {
+    editorPanel.innerHTML = '';
+    renderedEditorKey = undefined;
   }
 
   if (currentState.mode === 'video') {
@@ -189,4 +266,5 @@ async function renderDynamic() {
 }
 
 render();
+
 
