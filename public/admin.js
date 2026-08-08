@@ -55,7 +55,7 @@ function bindKeyPrompt() {
 
 function viewAdmin() {
   let opts = '';
-  for (let i = 1; i <= 15; i++) opts += `<option value="${i}">Imagen ${i}</option>`;
+  for (let i = 1; i <= 20; i++) opts += `<option value="${i}">Imagen ${i}</option>`;
   return `
     <div class="center"><h1 style="font-size:24px;">Panel del anfitrión</h1></div>
     <div class="card">
