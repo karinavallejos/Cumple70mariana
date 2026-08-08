@@ -1,0 +1,15 @@
+{
+  "name": "cumple-mama-game",
+  "version": "1.0.0",
+  "description": "Juego en vivo para el cumple: adivina la imagen con zoom, quien avisa primero, y video sincronizado para todos los invitados.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
